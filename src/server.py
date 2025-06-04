@@ -45,16 +45,17 @@ async def scrape_linkedin_post(
     
     if not linkedin_username or not linkedin_password:
         return "Missing LinkedIn credentials. Please provide username and password parameters or set LINKEDIN_USERNAME and LINKEDIN_PASSWORD environment variables."
-    
+    print(f"Using LinkedIn credentials for user: {linkedin_username}")
     results = []
     seen_profiles = set()
     
     async with async_playwright() as p:
         try:
+            print("Launching browser...")
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
             page = await context.new_page()
-            
+            print("Browser launched successfully.")
             # Navigate to login page and login
             await page.goto("https://www.linkedin.com/login")
             await page.wait_for_selector("#username")
