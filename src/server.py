@@ -1,4 +1,4 @@
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from playwright.async_api import async_playwright
 import asyncio
 import re
@@ -9,6 +9,16 @@ import pandas as pd
 load_dotenv()
 
 mcp = FastMCP("LinkedInCommentsScraper", stateless_http=True)
+
+@mcp.tool()
+async def health_check() -> str:
+    """
+    Simple health check tool to verify the MCP server is running properly.
+    
+    Returns:
+        A simple status message confirming the server is operational.
+    """
+    return "LinkedIn Comments Scraper MCP Server is healthy and ready to scrape!"
 
 @mcp.tool()
 async def scrape_linkedin_post(
@@ -176,17 +186,15 @@ async def scrape_linkedin_post(
             return f"Error: {str(e)}"
 
 if __name__ == "__main__":
-    # For hosting, you can use different transport options:
-    # For development: sse transport
-    # For production hosting: streamable-http
+    # For production hosting on Render - use streamable-http transport
+    # Get port from environment variable (Render sets PORT)
+    port = int(os.environ.get("PORT", 8000))
     
-    # Set environment variables for FastMCP streamable-http transport
-    #os.environ.setdefault("HOST", "0.0.0.0")
-    #if "PORT" not in os.environ:
-    #    os.environ["PORT"] = "8000"
-      # For HTTP hosting (recommended for external access and required for Render):
-    # FastMCP automatically uses HOST and PORT environment variables for streamable-http
-    mcp.run(transport="sse")
-    
-    # For MCP protocol (development only):
-    # mcp.run(transport="sse")
+    # Run with streamable-http transport binding to 0.0.0.0 for external access
+    mcp.run(
+        transport="streamable-http",
+        host="0.0.0.0",
+        port=port,
+        path="/mcp",
+        log_level="debug",
+    )
