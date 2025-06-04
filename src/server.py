@@ -181,12 +181,12 @@ if __name__ == "__main__":
     # For production hosting: streamable-http
     
     # Set environment variables for FastMCP streamable-http transport
-    os.environ.setdefault("HOST", "0.0.0.0")
-    if "PORT" not in os.environ:
-        os.environ["PORT"] = "8000"
+    #os.environ.setdefault("HOST", "0.0.0.0")
+    #if "PORT" not in os.environ:
+    #    os.environ["PORT"] = "8000"
       # For HTTP hosting (recommended for external access and required for Render):
     # FastMCP automatically uses HOST and PORT environment variables for streamable-http
-    mcp.run(transport="streamable-http")
+    mcp.run(transport="sse")
     
     # For MCP protocol (development only):
     # mcp.run(transport="sse")

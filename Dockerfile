@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+WORKDIR /app
 # Install system dependencies for Playwright and other requirements
 RUN apt-get update && apt-get install -y \
     wget \
@@ -19,7 +20,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
-WORKDIR /app
+
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
@@ -27,8 +28,7 @@ RUN pip install --no-cache-dir --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers (after MCP is installed)
-RUN playwright install chromium
-RUN playwright install-deps chromium
+RUN playwright install --with-deps chromium
 
 # Copy application code
 COPY src/ ./src/
