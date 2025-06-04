@@ -13,8 +13,9 @@ if __name__ == "__main__":
     
     # Run with uvicorn for better cloud compatibility
     uvicorn.run(
-        mcp.app,  # FastMCP creates an internal FastAPI app
+        "server:mcp",  # Points to the FastAPI app instance in server.py
         host=host,
         port=port,
-        log_level="info"
+        log_level="info",
+        factory=False,
     )
