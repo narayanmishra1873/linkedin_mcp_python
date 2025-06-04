@@ -3,8 +3,17 @@ from playwright.async_api import async_playwright
 import asyncio
 import re
 import os
+import logging
 from dotenv import load_dotenv
 import pandas as pd
+
+# Configure logging to show in Render logs
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -45,35 +54,46 @@ async def scrape_linkedin_post(
     
     if not linkedin_username or not linkedin_password:
         return "Missing LinkedIn credentials. Please provide username and password parameters or set LINKEDIN_USERNAME and LINKEDIN_PASSWORD environment variables."
-    print(f"Using LinkedIn credentials for user: {linkedin_username}")
+    
+    logger.info(f"Starting LinkedIn scraping for user: {linkedin_username}")
+    logger.info(f"Target post URL: {post_url}")
+    logger.info(f"Maximum results to return: {n}")
+    
     results = []
     seen_profiles = set()
     
     async with async_playwright() as p:
         try:
-            print("Launching browser...")
+            logger.info("Launching Playwright browser...")
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
             page = await context.new_page()
-            print("Browser launched successfully.")
+            logger.info("Browser launched successfully")
+            
             # Navigate to login page and login
+            logger.info("Navigating to LinkedIn login page...")
             await page.goto("https://www.linkedin.com/login")
             await page.wait_for_selector("#username")
+            logger.info("Login page loaded, filling credentials...")
             await page.fill("#username", linkedin_username)
             await page.wait_for_selector("#password")
             await page.fill("#password", linkedin_password)
             await page.click("button[type='submit']")
-            
-            # Wait for successful login
+            logger.info("Login form submitted, waiting for authentication...")
+              # Wait for successful login
             try:
                 await page.wait_for_selector("input[aria-label='Search']", timeout=30000)
-            except Exception:
+                logger.info("✅ Successfully logged into LinkedIn!")
+            except Exception as login_error:
+                logger.error(f"❌ Login failed: {str(login_error)}")
                 await browser.close()
                 return "Login failed or took too long."
             
             # Navigate to the target post URL
+            logger.info(f"Navigating to post: {post_url}")
             await page.goto(post_url)
             await asyncio.sleep(5)
+            logger.info("Post page loaded, starting comment extraction...")
             
             load_more_clicks = 0
             max_load_more_clicks = 10
@@ -83,9 +103,11 @@ async def scrape_linkedin_post(
                 # Extract all comment entities
                 comment_entities = await page.query_selector_all("article.comments-comment-entity")
                 current_comment_count = len(comment_entities)
+                logger.info(f"Found {current_comment_count} comment entities on page")
                 
                 # Break if no new comments are loaded
                 if current_comment_count == initial_comment_count and current_comment_count > 0:
+                    logger.info("No new comments loaded, breaking loop")
                     break
                 initial_comment_count = current_comment_count
                 
