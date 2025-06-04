@@ -40,6 +40,11 @@ EXPOSE 8000
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=8000
+ENV HOST=0.0.0.0
 
 # Run the application
+# Option 1: Using FastMCP's built-in streamable-http transport
 CMD ["python", "src/server.py"]
+
+# Option 2: Using uvicorn directly (alternative for better cloud compatibility)
+# CMD ["python", "src/main.py"]

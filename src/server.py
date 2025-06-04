@@ -8,7 +8,7 @@ import pandas as pd
 
 load_dotenv()
 
-mcp = FastMCP("LinkedInCommentsScraper")
+mcp = FastMCP("LinkedInCommentsScraper", stateless_http=True)
 
 @mcp.tool()
 async def scrape_linkedin_post(
@@ -41,7 +41,7 @@ async def scrape_linkedin_post(
     
     async with async_playwright() as p:
         try:
-            browser = await p.chromium.launch(headless=False)
+            browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
             page = await context.new_page()
             
@@ -180,10 +180,14 @@ if __name__ == "__main__":
     # For development: sse transport
     # For production hosting: streamable-http
     
-    #port = int(os.environ.get("PORT", 8000))
+    # Set environment variables for FastMCP streamable-http transport
+    os.environ.setdefault("HOST", "0.0.0.0")
+    if "PORT" not in os.environ:
+        os.environ["PORT"] = "8000"
     
-    # For HTTP hosting (recommended for external access):
-    #mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
-    
-    # For MCP protocol (default):
+    # For HTTP hosting (recommended for external access and required for Render):
+    # FastMCP automatically uses HOST and PORT environment variables for streamable-http
     mcp.run(transport="sse")
+    
+    # For MCP protocol (development only):
+    # mcp.run(transport="sse")
