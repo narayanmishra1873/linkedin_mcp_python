@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import pandas as pd
 import json
 from google import genai
+import aiofiles
 
 # Configure logging to show in Render logs
 logging.basicConfig(
@@ -20,6 +21,33 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 mcp = FastMCP("LinkedInCommentsScraper", stateless_http=True)
+
+STORAGE_STATE_PATH = "linkedin-state.json"
+
+async def ensure_linkedin_login(page, linkedin_username, linkedin_password):
+    """Ensure the user is logged in. If not, perform login and save storage state."""
+    await page.goto("https://www.linkedin.com/feed/")
+    # Check if already logged in by looking for the search bar
+    try:
+        await page.wait_for_selector("input[aria-label='Search']", timeout=8000)
+        return True  # Already logged in
+    except Exception:
+        pass  # Not logged in, proceed to login
+    # Go to login page
+    await page.goto("https://www.linkedin.com/login")
+    await page.wait_for_selector("#username")
+    await page.fill("#username", linkedin_username)
+    await page.wait_for_selector("#password")
+    await page.fill("#password", linkedin_password)
+    await page.click("button[type='submit']")
+    try:
+        await page.wait_for_selector("input[aria-label='Search']", timeout=30000)
+        # Save storage state after successful login
+        context = page.context
+        await context.storage_state(path=STORAGE_STATE_PATH)
+        return True
+    except Exception:
+        return False
 
 @mcp.tool()
 async def health_check() -> str:
@@ -63,34 +91,24 @@ async def scrape_linkedin_post(
     
     results = []
     seen_profiles = set()
-    
+
     async with async_playwright() as p:
         try:
             logger.info("Launching Playwright browser...")
+            # Try to use storage state if available
+            context_args = {}
+            if os.path.exists(STORAGE_STATE_PATH):
+                context_args['storage_state'] = STORAGE_STATE_PATH
             browser = await p.chromium.launch(headless=False)
-            context = await browser.new_context()
+            context = await browser.new_context(**context_args)
             page = await context.new_page()
-            logger.info("Browser launched successfully")
-            
-            # Navigate to login page and login
-            logger.info("Navigating to LinkedIn login page...")
-            await page.goto("https://www.linkedin.com/login")
-            await page.wait_for_selector("#username")
-            logger.info("Login page loaded, filling credentials...")
-            await page.fill("#username", linkedin_username)
-            await page.wait_for_selector("#password")
-            await page.fill("#password", linkedin_password)
-            await page.click("button[type='submit']")
-            logger.info("Login form submitted, waiting for authentication...")
-              # Wait for successful login
-            try:
-                await page.wait_for_selector("input[aria-label='Search']", timeout=30000)
-                logger.info("✅ Successfully logged into LinkedIn!")
-            except Exception as login_error:
-                logger.error(f"❌ Login failed: {str(login_error)}")
+
+            # Ensure login (if storage state is missing/expired, will login and save)
+            logged_in = await ensure_linkedin_login(page, linkedin_username, linkedin_password)
+            if not logged_in:
                 await browser.close()
                 return "Login failed or took too long."
-            
+
             # Navigate to the target post URL
             logger.info(f"Navigating to post: {post_url}")
             await page.goto(post_url)
@@ -245,31 +263,19 @@ async def extract_linkedin_profile_data(
     async with async_playwright() as p:
         try:
             logger.info("Launching Playwright browser...")
+            context_args = {}
+            if os.path.exists(STORAGE_STATE_PATH):
+                context_args['storage_state'] = STORAGE_STATE_PATH
             browser = await p.chromium.launch(headless=False)
-            context = await browser.new_context()
+            context = await browser.new_context(**context_args)
             page = await context.new_page()
-            logger.info("Browser launched successfully")
-            
-            # Navigate to login page and login
-            logger.info("Navigating to LinkedIn login page...")
-            await page.goto("https://www.linkedin.com/login")
-            await page.wait_for_selector("#username")
-            logger.info("Login page loaded, filling credentials...")
-            await page.fill("#username", linkedin_username)
-            await page.wait_for_selector("#password")
-            await page.fill("#password", linkedin_password)
-            await page.click("button[type='submit']")
-            logger.info("Login form submitted, waiting for authentication...")
-            
-            # Wait for successful login
-            try:
-                await page.wait_for_selector("input[aria-label='Search']", timeout=30000)
-                logger.info("✅ Successfully logged into LinkedIn!")
-            except Exception as login_error:
-                logger.error(f"❌ Login failed: {str(login_error)}")
+
+            # Ensure login (if storage state is missing/expired, will login and save)
+            logged_in = await ensure_linkedin_login(page, linkedin_username, linkedin_password)
+            if not logged_in:
                 await browser.close()
                 return "Login failed or took too long."
-            
+
             # Navigate to the target profile URL
             logger.info(f"Navigating to profile: {profile_url}")
             await page.goto(profile_url)
