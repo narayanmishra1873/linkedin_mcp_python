@@ -74,13 +74,13 @@ CSV formatted string with columns: name, headline, profile_url, email
 ```python
 # Using environment variables for credentials
 result = await scrape_linkedin_post(
-    post_url="https://www.linkedin.com/posts/example-post-url",
+    post_url="https://www.linkedin.com/posts/mishra-narayan_kgpians-placements-jobopportunities-activity-7113220698688385025-c0w0/",
     n=10
 )
 
 # Using provided credentials
 result = await scrape_linkedin_post(
-    post_url="https://www.linkedin.com/posts/example-post-url",
+    post_url="https://www.linkedin.com/posts/mishra-narayan_kgpians-placements-jobopportunities-activity-7113220698688385025-c0w0/",
     n=10,
     username="your_email@example.com",
     password="your_password"
