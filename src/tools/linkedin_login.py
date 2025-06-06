@@ -16,7 +16,7 @@ async def ensure_linkedin_login(page, linkedin_username, linkedin_password):
     await page.fill("#password", linkedin_password)
     await page.click("button[type='submit']")
     try:
-        await page.wait_for_selector("input[aria-label='Search']", timeout=30000)
+        await page.wait_for_selector("input[aria-label='Search']", timeout=60000)
         context = page.context
         await context.storage_state(path=STORAGE_STATE_PATH)
         return True
