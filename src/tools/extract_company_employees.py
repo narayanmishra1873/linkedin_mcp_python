@@ -17,69 +17,6 @@ HIGH_DESIGNATION_KEYWORDS = [
     'Chief', 'Senior Vice President', 'Executive Vice President', 'EVP', 'Founder'
 ]
 
-class CompanyEmployeeExtractor:
-    def __init__(self):
-        self.logger = logging.getLogger(__name__)
-        
-    def _calculate_designation_score(self, headline: str) -> int:
-        """Calculate a score based on how senior the designation appears to be."""
-        if not headline:
-            return 0
-        
-        score = 0
-        headline_lower = headline.lower()
-        
-        # Higher scores for more senior positions
-        for keyword in HIGH_DESIGNATION_KEYWORDS:
-            if keyword.lower() in headline_lower:
-                if keyword.lower() in ['ceo', 'president', 'founder', 'co-founder']:
-                    score += 100
-                elif keyword.lower() in ['cto', 'cfo', 'coo', 'chief']:
-                    score += 90
-                elif 'vice president' in keyword.lower() or keyword.lower() in ['vp', 'svp', 'evp']:
-                    score += 80
-                elif 'director' in keyword.lower():
-                    score += 70
-                elif keyword.lower() in ['head of', 'lead']:
-                    score += 60
-                elif 'manager' in keyword.lower():
-                    score += 50
-                elif keyword.lower() in ['principal', 'senior']:
-                    score += 40
-                else:
-                    score += 30
-        
-        return score
-
-def _calculate_designation_score(headline: str) -> int:
-    """Calculate a score based on how senior the designation appears to be."""
-    if not headline:
-        return 0
-    
-    score = 0
-    headline_lower = headline.lower()
-    
-    # Higher scores for more senior positions
-    for keyword in HIGH_DESIGNATION_KEYWORDS:
-        if keyword.lower() in headline_lower:
-            if keyword.lower() in ['ceo', 'president', 'founder', 'co-founder']:
-                score += 100
-            elif keyword.lower() in ['cto', 'cfo', 'coo', 'chief']:
-                score += 90
-            elif 'vice president' in keyword.lower() or keyword.lower() in ['vp', 'svp', 'evp']:
-                score += 80
-            elif 'director' in keyword.lower():
-                score += 70
-            elif keyword.lower() in ['head of', 'lead']:
-                score += 60
-            elif 'manager' in keyword.lower():
-                score += 50
-            elif keyword.lower() in ['principal', 'senior']:
-                score += 40
-            else:
-                score += 30
-    
-    return score
 
 async def _navigate_to_people_page(page, company_name: str = None, company_url: str = None) -> str:
     """
@@ -288,19 +225,25 @@ async def extract_company_employees(
             people_page_url = await _navigate_to_people_page(page, company_name, company_url)
             
             if people_page_url:
-                logger.info(f"Successfully navigated to people page: {people_page_url}")
+                logger.info(f"Successfully navigated to people page: {people_page_url}")                
                 employees = []
                 seen_urls = set()
                 attempts = 0
                 last_count = 0
                 max_attempts = 30
+                current_scroll_position = 0
+                
                 while len(employees) < max_employees and attempts < max_attempts:
                     attempts += 1
-                    # Slowly scroll down in increments to trigger lazy loading
+                    # Get current scroll position and new scroll height
+                    current_scroll_position = await page.evaluate('() => window.pageYOffset')
                     scroll_height = await page.evaluate('() => document.body.scrollHeight')
-                    for y in range(0, scroll_height, 500):
-                        await page.evaluate(f'window.scrollTo(0, {y})')
-                        await asyncio.sleep(1)  
+                    
+                    # Only scroll from current position to new height
+                    if current_scroll_position < scroll_height:
+                        for y in range(current_scroll_position, scroll_height, 500):
+                            await page.evaluate(f'window.scrollTo(0, {y})')
+                            await asyncio.sleep(1)
 
                     profiles = []
                     
@@ -340,16 +283,13 @@ async def extract_company_employees(
                                 headline = await headline_element.inner_text() if headline_element else "N/A"
                                 headline = headline.strip()
                                 
-                                # Calculate designation score
-                                designation_score = _calculate_designation_score(f"{name} {headline}")
                                 
                                 # Add to employees list if we have valid data
                                 if name and name != "N/A" and name != "LinkedIn Member":
                                     employees.append({
                                         'name': name,
                                         'headline': headline,
-                                        'profile_url': profile_url or "N/A",
-                                        'designation_score': designation_score
+                                        'profile_url': profile_url or "N/A"
                                     })
                                     logger.info(f"Extracted: {name} - {headline}")
                                 
@@ -365,13 +305,14 @@ async def extract_company_employees(
                     except Exception as e:
                         logger.error(f"Error finding profile cards: {str(e)}")
                         return f"Error: {str(e)}"
-                    
-                    # Check if we found new employees
+                      # Check if we found new employees
                     if last_count == len(employees):
                         # No new employees found, try to click 'Show more' button
                         try:
                             show_more_btn = await page.query_selector('button.scaffold-finite-scroll__load-button')
                             if show_more_btn and await show_more_btn.is_enabled():
+                                # Update current scroll position before clicking
+                                current_scroll_position = await page.evaluate('() => window.pageYOffset')
                                 await show_more_btn.click()
                                 await asyncio.sleep(2)
                                 logger.info("Clicked 'Show more results' button")
