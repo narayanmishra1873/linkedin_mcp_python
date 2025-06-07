@@ -242,10 +242,9 @@ async def extract_company_employees(
 ) -> str:
     """
     Navigate to LinkedIn company people page using either company name or company URL.
-    
     Args:
-        company_name: Name of the company (e.g., "CashRich") - optional if company_url is provided
-        company_url: LinkedIn company URL (e.g., "https://www.linkedin.com/company/cr-fintech/people/", "https://www.linkedin.com/company/cr-fintech/") 
+        company_name: Name of the company (e.g., "CashRich")
+        company_url: LinkedIn company URL (e.g., "https://www.linkedin.com/company/cr-fintech/people/", "https://www.linkedin.com/company/cr-fintech/")
         max_employees: Maximum number of employees to extract (default: 30)
         username: LinkedIn username/email (optional, falls back to env var)
         password: LinkedIn password (optional, falls back to env var)
@@ -301,75 +300,89 @@ async def extract_company_employees(
                     scroll_height = await page.evaluate('() => document.body.scrollHeight')
                     for y in range(0, scroll_height, 500):
                         await page.evaluate(f'window.scrollTo(0, {y})')
-                        await asyncio.sleep(1)
-                    await asyncio.sleep(2)                    # Extract employee cards from the LinkedIn people page structure
-                    employee_cards = await page.query_selector_all('li.org-people-profile-card__profile-card-spacing')
-                    logger.info(f"Found {len(employee_cards)} employee cards on page")
+                        await asyncio.sleep(1)  
 
-                    if not employee_cards or len(employee_cards) == 0:
-                        return ("No employee cards found with current selectors")
-                    return f'Cards: {employee_cards}'
-                    for card in employee_cards:
-                        try:
-                            # Extract profile link URL and name from the same link element
-                            profile_url = await card.eval_on_selector(
-                                "a.link-without-visited-state", "anchor => anchor.href"
-                            )
-                            seen_urls.add(profile_url)
-
-                            # Extract name from the div inside the profile link
-                            name = await card.eval_on_selector(
-                                "a.link-without-visited-state div.lt-line-clamp--single-line",
-                                "div => div.innerText.trim()"
-                            )
-                            # Extract headline from the multi-line clamp div
-                            headline = ''
-                            headline = await card.eval_on_selector(
-                                ".artdeco-entity-lockup__subtitle div.lt-line-clamp--multi-line",
-                                "div => div.innerText.trim()"
-                            )
-                            
-                            name = name.replace('\n', ' ').strip()
-                            headline = headline.replace('\n', ' ').strip()
-                            return f'Profile link: {profile_url}, Name: {name}, Headline: {headline}'
-                            
-                            # Calculate designation score using the helper function
-                            extractor = CompanyEmployeeExtractor()
-                            is_high_designation = extractor._calculate_designation_score(f"{name} {headline}") > 0
-                            
-                            if name:  # Only add if we have a name
-                                employees.append({
-                                    'name': name,
-                                    'headline': headline,
-                                    'profile_url': url if url.startswith('http') else f"https://linkedin.com{url}",
-                                    'high_designation': is_high_designation
-                                })
-                                logger.info(f"Extracted employee: {name} - {headline[:50]}...")
-                            else:
-                                logger.warning(f"Skipping employee with no name. URL: {url}")
+                    profiles = []
+                    
+                    # Wait for profile cards to be visible
+                    try:
+                        # Get profile cards from LinkedIn people page
+                        profile_cards = await page.locator('.org-people-profile-card__profile-info').element_handles()
+                        logger.info(f"Found {len(profile_cards)} profile cards")
+                        
+                        # Extract data from each profile card
+                        for i, card in enumerate(profile_cards):
+                            try:
+                                # Extract profile URL from the title link
+                                profile_link = await card.query_selector('.artdeco-entity-lockup__title a')
+                                if profile_link:
+                                    profile_url = await profile_link.get_attribute('href')
+                                    # Clean the URL (remove miniProfileUrn parameter)
+                                    if profile_url and '?' in profile_url:
+                                        profile_url = profile_url.split('?')[0]
+                                else:
+                                    profile_url = None
                                 
-                            if len(employees) >= max_employees:
+                                # Skip if we've already seen this profile URL
+                                if profile_url and profile_url in seen_urls:
+                                    continue
+                                
+                                if profile_url:
+                                    seen_urls.add(profile_url)
+                                
+                                # Extract name from the title link
+                                name_element = await card.query_selector('.artdeco-entity-lockup__title a .lt-line-clamp')
+                                name = await name_element.inner_text() if name_element else "N/A"
+                                name = name.strip()
+                                
+                                # Extract headline from subtitle
+                                headline_element = await card.query_selector('.artdeco-entity-lockup__subtitle .lt-line-clamp')
+                                headline = await headline_element.inner_text() if headline_element else "N/A"
+                                headline = headline.strip()
+                                
+                                # Calculate designation score
+                                designation_score = _calculate_designation_score(f"{name} {headline}")
+                                
+                                # Add to employees list if we have valid data
+                                if name and name != "N/A" and name != "LinkedIn Member":
+                                    employees.append({
+                                        'name': name,
+                                        'headline': headline,
+                                        'profile_url': profile_url or "N/A",
+                                        'designation_score': designation_score
+                                    })
+                                    logger.info(f"Extracted: {name} - {headline}")
+                                
+                                # Stop if we've reached max employees
+                                if len(employees) >= max_employees:
+                                    break
+                                    
+                            except Exception as card_error:
+                                logger.warning(f"Error extracting data from card {i+1}: {card_error}")
+                                continue
+                        logger.info(f"Total employees extracted so far: {len(employees)}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error finding profile cards: {str(e)}")
+                        return f"Error: {str(e)}"
+                    
+                    # Check if we found new employees
+                    if last_count == len(employees):
+                        # No new employees found, try to click 'Show more' button
+                        try:
+                            show_more_btn = await page.query_selector('button.scaffold-finite-scroll__load-button')
+                            if show_more_btn and await show_more_btn.is_enabled():
+                                await show_more_btn.click()
+                                await asyncio.sleep(2)
+                                logger.info("Clicked 'Show more results' button")
+                            else:
+                                logger.info("No more 'Show more results' button found - breaking")
                                 break
                         except Exception as e:
-                            return f"Error extracting employee data: {str(e)}"
-                            logger.warning(f"Error extracting person: {str(e)}")
-                            continue
-                    if last_count == len(employees):
-                        # No new employees found, break
-                        break
-                    last_count = len(employees)                    # Click 'Show more results' if present
-                    try:
-                        show_more_btn = await page.query_selector('button.scaffold-finite-scroll__load-button')
-                        if show_more_btn and await show_more_btn.is_enabled():
-                            await show_more_btn.click()
-                            await asyncio.sleep(2)
-                            logger.info("Clicked 'Show more results' button")
-                        else:
-                            logger.info("No more 'Show more results' button found")
+                            logger.info(f"No more 'Show more results' button or error: {str(e)} - breaking")
                             break
-                    except Exception as e:
-                        logger.info(f"No more 'Show more results' button or error: {str(e)}")
-                        break
+                    
+                    last_count = len(employees)
                 import pandas as pd
                 df = pd.DataFrame(employees)
                 await browser.close()
