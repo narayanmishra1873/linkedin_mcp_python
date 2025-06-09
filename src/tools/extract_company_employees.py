@@ -245,7 +245,6 @@ async def extract_company_employees(
                             await page.evaluate(f'window.scrollTo(0, {y})')
                             await asyncio.sleep(1)
 
-                    profiles = []
                     
                     # Wait for profile cards to be visible
                     try:
