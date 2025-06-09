@@ -4,6 +4,7 @@ from tools.scrape_linkedin_post import scrape_linkedin_post
 from tools.extract_linkedin_profile_data import extract_linkedin_profile_data
 from tools.extract_company_employees import extract_company_employees
 from tools.send_connection_request import send_connection_request
+from tools.generate_linkedin_content import generate_linkedin_content
 import logging
 from dotenv import load_dotenv
 
@@ -25,6 +26,7 @@ mcp.add_tool(scrape_linkedin_post, description="Scrape comments from a LinkedIn 
 mcp.add_tool(extract_linkedin_profile_data, description="Extract profile data from a LinkedIn profile URL.")
 mcp.add_tool(extract_company_employees, description="Extract employee information from a company using either company name or LinkedIn company URL. Prioritizes high-designation employees.")
 mcp.add_tool(send_connection_request, description="Send a connection request to a LinkedIn profile URL. (Optional: include a personalized message of at max 180 characters. If the user has not provided any message, but wants to send a personalized invite, use extract_linkedin_profile_data tool to get the profile data and use it to create a personalized message.)")
+mcp.add_tool(generate_linkedin_content, description="Generate engaging LinkedIn posts by analyzing existing posts on a topic. Searches LinkedIn posts via Google(default 10 unless mentioned otherwise), extracts content, and uses AI to create viral, thought-provoking posts for industry leaders. Show the generated output to the user as it is.")
 
 if __name__ == "__main__":
     # For production hosting on Render - use streamable-http transport

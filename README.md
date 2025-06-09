@@ -1,25 +1,77 @@
-# LinkedIn Comments Scraper MCP Server
+# LinkedIn Automation & Content Generation Tool 🚀
 
-A Model Context Protocol (MCP) server that scrapes LinkedIn post comments to extract email addresses and profile information.
+A comprehensive LinkedIn automation tool that combines MCP (Model Context Protocol) server functionality with AI-powered content generation. The tool extracts LinkedIn posts via Google search, scrapes their content, and uses Google Gemini AI to generate new engaging posts based on the extracted data.
 
-## Features
+## Features ✨
 
-- Scrapes LinkedIn post comments looking for email addresses
-- Extracts user names, headlines, and profile URLs
-- Returns data in CSV format
-- Supports authentication via environment variables or parameters
-- Built with FastMCP for easy hosting and integration
+### Core LinkedIn Tools (MCP Server)
+- **🔍 Health Check**: Monitor server status and connectivity
+- **📄 Post Scraping**: Extract LinkedIn post content and comments
+- **👤 Profile Extraction**: Get detailed LinkedIn profile data
+- **🏢 Company Employees**: Extract employee lists from company pages
+- **🤝 Connection Requests**: Automated connection request sending
+
+### NEW: AI Content Generation
+- **🔍 Smart Post Extraction**: Searches for LinkedIn posts using Google search with `site:linkedin.com/posts/`
+- **📄 Web Scraping**: Extracts post content without requiring LinkedIn login
+- **🤖 AI Content Generation**: Uses Google Gemini AI to create engaging LinkedIn posts
+- **📊 Analytics**: Tracks extraction success rates and content analysis
+- **🎯 Topic-Focused**: Search for posts about specific subjects or industries
 
 ## Setup
 
 ### Environment Variables
 
-Create a `.env` file in the root directory with your LinkedIn credentials:
+Create a `.env` file in the root directory with your credentials:
 
 ```env
+# LinkedIn credentials (for MCP server tools)
 LINKEDIN_USERNAME=your_linkedin_email@example.com
 LINKEDIN_PASSWORD=your_linkedin_password
+
+# Google Gemini AI API Key (for content generation)
+# Get your API key from: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=your_gemini_api_key_here
 ```
+
+### Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+## Usage 🎯
+
+### 1. AI Content Generation (NEW!)
+
+#### Quick Demo
+```python
+python extract_linkedin_post.py
+```
+
+#### Custom Subject Search
+```python
+from extract_linkedin_post import demo_linkedin_automation
+
+# Extract posts about AI and generate new content
+demo_linkedin_automation("artificial intelligence", num_posts=5)
+```
+
+#### Advanced Usage - Extract and Generate Posts
+```python
+from extract_linkedin_post import extract_and_generate_posts
+
+results = extract_and_generate_posts(
+    subject="machine learning",
+    num_posts=10,
+    generate_ai_content=True
+)
+
+print("Extracted Content:", results["extracted_content"])
+print("AI Generated Posts:", results["ai_generated_posts"])
+print("Summary:", results["summary"])
+```
+
+### 2. MCP Server Tools
 
 ### Installation
 
