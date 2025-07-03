@@ -29,7 +29,10 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+INTERVIEW_QUESTIONS.md
+LINKEDIN_MCP_TECHNICAL_ANALYSIS.md
+TECHNICAL_GLOSSARY.md
+PROJECT_OVERVIEW.md
 # Virtual environments
 .env
 .venv
